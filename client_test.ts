@@ -14,9 +14,10 @@ import {
 import { StatusCode, newInternalServerErrorError } from "@selfage/http_error";
 import { eqHttpError } from "@selfage/http_error/test_matcher";
 import {
-  destringifyMessage,
-  stringifyMessage,
-} from "@selfage/message/stringifier";
+  deserializeMessage,
+  serializeMessage,
+} from "@selfage/message/serializer";
+import { destringifyMessage } from "@selfage/message/stringifier";
 import { eqMessage } from "@selfage/message/test_matcher";
 import { assertReject, assertThat, eq, eqError } from "@selfage/test_matcher";
 import { TEST_RUNNER, TestCase } from "@selfage/test_runner";
@@ -62,14 +63,14 @@ TEST_RUNNER.run({
         // Prepare
         let app = express();
         this.server = await createServer(app);
-        app.post("/GetComments", express.text(), (req, res) => {
+        app.post("/GetComments", express.raw(), (req, res) => {
           assertThat(
-            destringifyMessage(req.body, GET_COMMENTS_REQUEST_BODY),
+            deserializeMessage(req.body, GET_COMMENTS_REQUEST_BODY),
             eqMessage({ videoId: "aaaaa" }, GET_COMMENTS_REQUEST_BODY),
             "request body",
           );
           res.end(
-            stringifyMessage({ texts: ["1", "2", "3"] }, GET_COMMENTS_RESPONSE),
+            serializeMessage({ texts: ["1", "2", "3"] }, GET_COMMENTS_RESPONSE),
           );
         });
         let client = NodeServiceClient.create();
@@ -96,7 +97,7 @@ TEST_RUNNER.run({
         // Prepare
         let app = express();
         this.server = await createServer(app);
-        app.post("/GetComments", express.text(), (req, res) => {
+        app.post("/GetComments", express.raw(), (req, res) => {
           setCorsHeader(res);
           res.sendStatus(StatusCode.InternalServerError);
         });
@@ -145,7 +146,7 @@ TEST_RUNNER.run({
         // Prepare
         let app = express();
         this.server = await createServer(app);
-        app.post("/GetComments", express.text(), (req, res) => {
+        app.post("/GetComments", express.raw(), (req, res) => {
           setCorsHeader(res);
           res.end("random string");
         });
@@ -184,7 +185,7 @@ TEST_RUNNER.run({
         // Prepare
         let app = express();
         this.server = await createServer(app);
-        app.post("/GetComments", express.text(), (req, res) => {
+        app.post("/GetComments", express.raw(), (req, res) => {
           // Hang forever.
         });
         let client = NodeServiceClient.create();
@@ -279,7 +280,7 @@ TEST_RUNNER.run({
           );
           assertThat(req.body, eq("hahahah, random stuff"), "request body");
           res.end(
-            stringifyMessage(
+            serializeMessage(
               { byteSize: 10, success: true },
               UPLOAD_FILE_RESPONSE,
             ),

@@ -3,9 +3,10 @@ import getStream = require("get-stream");
 import http = require("http");
 import { HttpError, newBadRequestError } from "@selfage/http_error";
 import {
-  destringifyMessage,
-  stringifyMessage,
-} from "@selfage/message/stringifier";
+  deserializeMessage,
+  serializeMessage,
+} from "@selfage/message/serializer";
+import { stringifyMessage } from "@selfage/message/stringifier";
 import {
   NodeRemoteCallDescriptor,
   PrimitveTypeForBody,
@@ -14,7 +15,8 @@ import {
   NodeClientInterface,
   NodeClientOptions,
 } from "@selfage/service_descriptor/client_interface";
-import { Readable } from "stream";
+
+type WriteBodyFunction = (req: http.ClientRequest) => void;
 
 export interface NodeServiceClient {
   // When server finished response with an error code, i.e. either 4xx or 5xx.
@@ -71,17 +73,21 @@ export class NodeServiceClient
       );
     }
 
-    let body: Readable;
+    let writeBody: WriteBodyFunction;
     if (remoteCallDescriptor.body.messageType) {
-      headers["content-type"] = "text/plain";
-      body = Readable.from(
-        stringifyMessage(request.body, remoteCallDescriptor.body.messageType),
-      );
+      headers["content-type"] = "application/octet-stream";
+      writeBody = (req) => {
+        req.end(
+          serializeMessage(request.body, remoteCallDescriptor.body.messageType),
+        );
+      };
     } else if (
       remoteCallDescriptor.body.primitiveType === PrimitveTypeForBody.BYTES
     ) {
       headers["content-type"] = "application/octet-stream";
-      body = request.body;
+      writeBody = (req) => {
+        request.body.pipe(req);
+      };
     } else {
       throw newBadRequestError("Unsupported client request body.");
     }
@@ -89,7 +95,7 @@ export class NodeServiceClient
     let httpResponse = await this.requestWithTimeoutAndRetries(
       remoteCallDescriptor.path,
       searchParams,
-      body,
+      writeBody,
       headers,
       options.retries,
       options.timeout,
@@ -102,10 +108,8 @@ export class NodeServiceClient
     }
 
     try {
-      return destringifyMessage(
-        await await getStream(httpResponse, {
-          encoding: "utf-8",
-        }),
+      return deserializeMessage(
+        await getStream.buffer(httpResponse),
         remoteCallDescriptor.response.messageType,
       );
     } catch (e) {
@@ -116,7 +120,7 @@ export class NodeServiceClient
   private async requestWithTimeoutAndRetries(
     path: string,
     searchParams: URLSearchParams,
-    body: Readable,
+    writeBody: WriteBodyFunction,
     headers: http.OutgoingHttpHeaders,
     retries = 1,
     timeout?: number,
@@ -144,7 +148,7 @@ export class NodeServiceClient
           req.on("error", (e) => {
             reject(e);
           });
-          body.pipe(req);
+          writeBody(req);
         });
         return res;
       } catch (e) {
