@@ -1,9 +1,6 @@
 import { MessageDescriptor, PrimitiveType } from "@selfage/message/descriptor";
-import { NodeRemoteCallDescriptor } from "@selfage/service_descriptor";
-import {
-  NodeClientInterface,
-  NodeClientOptions,
-} from "@selfage/service_descriptor/client_interface";
+import { RemoteCallDescriptor } from "@selfage/service_descriptor";
+import { ClientRequestInterface } from "@selfage/service_descriptor/client_request_interface";
 
 export interface GetCommentsRequestBody {
   videoId?: string;
@@ -37,8 +34,9 @@ export let GET_COMMENTS_RESPONSE: MessageDescriptor<GetCommentsResponse> = {
   ],
 };
 
-export let GET_COMMENTS: NodeRemoteCallDescriptor = {
+export let GET_COMMENTS: RemoteCallDescriptor = {
   name: "GetComments",
+  serviceName: "CommentService",
   path: "/GetComments",
   body: {
     messageType: GET_COMMENTS_REQUEST_BODY,
@@ -48,16 +46,11 @@ export let GET_COMMENTS: NodeRemoteCallDescriptor = {
   },
 };
 
-export function getComments(
-  client: NodeClientInterface,
+export function newGetCommentsRequest(
   body: GetCommentsRequestBody,
-  options?: NodeClientOptions,
-): Promise<GetCommentsResponse> {
-  return client.send(
-    {
-      descriptor: GET_COMMENTS,
-      body,
-    },
-    options,
-  );
+): ClientRequestInterface<GetCommentsResponse> {
+  return {
+    descriptor: GET_COMMENTS,
+    body,
+  };
 }

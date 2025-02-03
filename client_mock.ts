@@ -6,7 +6,7 @@ export class NodeServiceClientMock extends NodeServiceClient {
   public response: any; // to return;
 
   public constructor() {
-    super(undefined);
+    super(undefined, undefined);
   }
   public async send(request: any): Promise<any> {
     this.request = request;

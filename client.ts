@@ -7,14 +7,13 @@ import {
   serializeMessage,
 } from "@selfage/message/serializer";
 import { stringifyMessage } from "@selfage/message/stringifier";
-import {
-  NodeRemoteCallDescriptor,
-  PrimitveTypeForBody,
-} from "@selfage/service_descriptor";
-import {
-  NodeClientInterface,
-  NodeClientOptions,
-} from "@selfage/service_descriptor/client_interface";
+import { PrimitveTypeForBody } from "@selfage/service_descriptor";
+import { ClientRequestInterface } from "@selfage/service_descriptor/client_request_interface";
+
+export interface NodeClientOptions {
+  retries?: number;
+  timeout?: number;
+}
 
 type WriteBodyFunction = (req: http.ClientRequest) => void;
 
@@ -28,24 +27,24 @@ export interface NodeServiceClient {
   on(event: "error", listener: (error: any) => Promise<void> | void): this;
 }
 
-export class NodeServiceClient
-  extends EventEmitter
-  implements NodeClientInterface
-{
-  public static create(): NodeServiceClient {
-    return new NodeServiceClient((callback, ms) => setTimeout(callback, ms));
+export class NodeServiceClient extends EventEmitter {
+  public static create(baseUrlsMap: Map<string, string>): NodeServiceClient {
+    return new NodeServiceClient(baseUrlsMap, (callback, ms) =>
+      setTimeout(callback, ms),
+    );
   }
 
-  // Include origin and path, prior to any remote call path.
-  public baseUrl: string;
-
   public constructor(
+    private baseUrlsMap: Map<string, string>,
     private setTimeout: (callback: Function, ms: number) => number,
   ) {
     super();
   }
 
-  public async send(request: any, options?: NodeClientOptions): Promise<any> {
+  public async send<Response>(
+    request: ClientRequestInterface<Response>,
+    options?: NodeClientOptions,
+  ): Promise<Response> {
     try {
       return await this.sendOrThrowErrors(request, options);
     } catch (e) {
@@ -60,29 +59,28 @@ export class NodeServiceClient
   }
 
   private async sendOrThrowErrors(
-    request: any,
+    request: ClientRequestInterface<any>,
     options: NodeClientOptions = {},
   ): Promise<any> {
-    let remoteCallDescriptor = request.descriptor as NodeRemoteCallDescriptor;
     let headers: http.OutgoingHttpHeaders = {};
     let searchParams = new URLSearchParams();
     if (request.metadata) {
       searchParams.set(
-        remoteCallDescriptor.metadata.key,
-        stringifyMessage(request.metadata, remoteCallDescriptor.metadata.type),
+        request.descriptor.metadata.key,
+        stringifyMessage(request.metadata, request.descriptor.metadata.type),
       );
     }
 
     let writeBody: WriteBodyFunction;
-    if (remoteCallDescriptor.body.messageType) {
+    if (request.descriptor.body.messageType) {
       headers["content-type"] = "application/octet-stream";
       writeBody = (req) => {
         req.end(
-          serializeMessage(request.body, remoteCallDescriptor.body.messageType),
+          serializeMessage(request.body, request.descriptor.body.messageType),
         );
       };
     } else if (
-      remoteCallDescriptor.body.primitiveType === PrimitveTypeForBody.BYTES
+      request.descriptor.body.primitiveType === PrimitveTypeForBody.BYTES
     ) {
       headers["content-type"] = "application/octet-stream";
       writeBody = (req) => {
@@ -92,8 +90,14 @@ export class NodeServiceClient
       throw newBadRequestError("Unsupported client request body.");
     }
 
+    let baseUrl = this.baseUrlsMap.get(request.descriptor.serviceName);
+    if (!baseUrl) {
+      throw new Error(
+        `No base url found for service ${request.descriptor.serviceName}.`,
+      );
+    }
     let httpResponse = await this.requestWithTimeoutAndRetries(
-      remoteCallDescriptor.path,
+      `${baseUrl}${request.descriptor.path}`,
       searchParams,
       writeBody,
       headers,
@@ -110,7 +114,7 @@ export class NodeServiceClient
     try {
       return deserializeMessage(
         await getStream.buffer(httpResponse),
-        remoteCallDescriptor.response.messageType,
+        request.descriptor.response.messageType,
       );
     } catch (e) {
       throw new Error(`Unable to parse server response.`);
@@ -118,7 +122,7 @@ export class NodeServiceClient
   }
 
   private async requestWithTimeoutAndRetries(
-    path: string,
+    url: string,
     searchParams: URLSearchParams,
     writeBody: WriteBodyFunction,
     headers: http.OutgoingHttpHeaders,
@@ -136,7 +140,7 @@ export class NodeServiceClient
         }
         let res = await new Promise<http.IncomingMessage>((resolve, reject) => {
           let req = http.request(
-            `${this.baseUrl}${path}?${searchParams}`,
+            `${url}?${searchParams}`,
             {
               method: "POST",
               headers,

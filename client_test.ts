@@ -4,12 +4,12 @@ import { NodeServiceClient } from "./client";
 import {
   GET_COMMENTS_REQUEST_BODY,
   GET_COMMENTS_RESPONSE,
-  getComments,
+  newGetCommentsRequest,
 } from "./test_data/get_comments";
 import {
   UPLOAD_FILE_REQUEST_METADATA,
   UPLOAD_FILE_RESPONSE,
-  uploadFile,
+  newUploadFileRequest,
 } from "./test_data/upload_file";
 import { StatusCode, newInternalServerErrorError } from "@selfage/http_error";
 import { eqHttpError } from "@selfage/http_error/test_matcher";
@@ -73,11 +73,14 @@ TEST_RUNNER.run({
             serializeMessage({ texts: ["1", "2", "3"] }, GET_COMMENTS_RESPONSE),
           );
         });
-        let client = NodeServiceClient.create();
-        client.baseUrl = ORIGIN;
+        let client = NodeServiceClient.create(
+          new Map([["CommentService", ORIGIN]]),
+        );
 
         // Execute
-        let actualResponse = await getComments(client, { videoId: "aaaaa" });
+        let actualResponse = await client.send(
+          newGetCommentsRequest({ videoId: "aaaaa" }),
+        );
 
         // Verify
         assertThat(
@@ -101,8 +104,9 @@ TEST_RUNNER.run({
           setCorsHeader(res);
           res.sendStatus(StatusCode.InternalServerError);
         });
-        let client = NodeServiceClient.create();
-        client.baseUrl = ORIGIN;
+        let client = NodeServiceClient.create(
+          new Map([["CommentService", ORIGIN]]),
+        );
 
         let httpErrors = 0;
         let errors = 0;
@@ -124,7 +128,9 @@ TEST_RUNNER.run({
         });
 
         // Execute
-        let error = await assertReject(getComments(client, { videoId: "any" }));
+        let error = await assertReject(
+          client.send(newGetCommentsRequest({ videoId: "any" })),
+        );
 
         // Verify
         assertThat(httpErrors, eq(1), `onHttpError counter`);
@@ -150,8 +156,9 @@ TEST_RUNNER.run({
           setCorsHeader(res);
           res.end("random string");
         });
-        let client = NodeServiceClient.create();
-        client.baseUrl = ORIGIN;
+        let client = NodeServiceClient.create(
+          new Map([["CommentService", ORIGIN]]),
+        );
 
         let errors = 0;
         client.on("error", (error) => {
@@ -164,7 +171,9 @@ TEST_RUNNER.run({
         });
 
         // Execute
-        let error = await assertReject(getComments(client, { videoId: "any" }));
+        let error = await assertReject(
+          client.send(newGetCommentsRequest({ videoId: "any" })),
+        );
 
         // Verify
         assertThat(errors, eq(1), `onError counter`);
@@ -188,8 +197,9 @@ TEST_RUNNER.run({
         app.post("/GetComments", express.raw(), (req, res) => {
           // Hang forever.
         });
-        let client = NodeServiceClient.create();
-        client.baseUrl = ORIGIN;
+        let client = NodeServiceClient.create(
+          new Map([["CommentService", ORIGIN]]),
+        );
 
         let errors = 0;
         client.on("error", (error) => {
@@ -203,14 +213,10 @@ TEST_RUNNER.run({
 
         // Execute
         let error = await assertReject(
-          getComments(
-            client,
-            { videoId: "any" },
-            {
-              retries: 10,
-              timeout: 50,
-            },
-          ),
+          client.send(newGetCommentsRequest({ videoId: "any" }), {
+            retries: 10,
+            timeout: 50,
+          }),
         );
 
         // Verify
@@ -229,8 +235,9 @@ TEST_RUNNER.run({
       public name = "GetCommentsExhaustedRetries";
       public async execute() {
         // Prepare
-        let client = NodeServiceClient.create();
-        client.baseUrl = ORIGIN;
+        let client = NodeServiceClient.create(
+          new Map([["CommentService", ORIGIN]]),
+        );
         let errors = 0;
         client.on("error", (error) => {
           errors++;
@@ -243,13 +250,9 @@ TEST_RUNNER.run({
 
         // Execute
         let error = await assertReject(
-          getComments(
-            client,
-            { videoId: "any" },
-            {
-              retries: 3,
-            },
-          ),
+          client.send(newGetCommentsRequest({ videoId: "any" }), {
+            retries: 3,
+          }),
         );
 
         // Verify
@@ -286,14 +289,15 @@ TEST_RUNNER.run({
             ),
           );
         });
-        let client = NodeServiceClient.create();
-        client.baseUrl = ORIGIN;
+        let client = NodeServiceClient.create(
+          new Map([["FileService", ORIGIN]]),
+        );
 
         // Execute
-        let actualResponse = await uploadFile(
-          client,
-          createReadStream("./test_data/file.txt"),
-          { fileName: "file1" },
+        let actualResponse = await client.send(
+          newUploadFileRequest(createReadStream("./test_data/file.txt"), {
+            fileName: "file1",
+          }),
         );
 
         // Verify

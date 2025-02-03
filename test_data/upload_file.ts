@@ -1,12 +1,9 @@
 import { MessageDescriptor, PrimitiveType } from "@selfage/message/descriptor";
 import {
-  NodeRemoteCallDescriptor,
   PrimitveTypeForBody,
+  RemoteCallDescriptor,
 } from "@selfage/service_descriptor";
-import {
-  NodeClientInterface,
-  NodeClientOptions,
-} from "@selfage/service_descriptor/client_interface";
+import { ClientRequestInterface } from "@selfage/service_descriptor/client_request_interface";
 import { Readable } from "stream";
 
 export interface UploadFileRequestMetadata {
@@ -46,8 +43,9 @@ export let UPLOAD_FILE_RESPONSE: MessageDescriptor<UploadFileResponse> = {
   ],
 };
 
-export let UPLOAD_FILE: NodeRemoteCallDescriptor = {
+export let UPLOAD_FILE: RemoteCallDescriptor = {
   name: "UploadFile",
+  serviceName: "FileService",
   path: "/UploadFile",
   metadata: {
     key: "sd",
@@ -61,18 +59,13 @@ export let UPLOAD_FILE: NodeRemoteCallDescriptor = {
   },
 };
 
-export function uploadFile(
-  client: NodeClientInterface,
+export function newUploadFileRequest(
   body: Readable,
   metadata: UploadFileRequestMetadata,
-  options?: NodeClientOptions,
-): Promise<UploadFileResponse> {
-  return client.send(
-    {
-      descriptor: UPLOAD_FILE,
-      body,
-      metadata,
-    },
-    options,
-  );
+): ClientRequestInterface<UploadFileResponse> {
+  return {
+    descriptor: UPLOAD_FILE,
+    body,
+    metadata,
+  };
 }
