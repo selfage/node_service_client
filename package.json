@@ -1,6 +1,6 @@
 {
   "name": "@selfage/node_service_client",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Http client to make remote call to services from Nodejs applications.",
   "repository": {
     "type": "git",
@@ -39,7 +39,7 @@
   "dependencies": {
     "@selfage/http_error": "^1.1.2",
     "@selfage/message": "^3.5.7",
-    "@selfage/service_descriptor": "^5.2.2",
+    "@selfage/service_descriptor": "^5.2.3",
     "@selfage/test_matcher": "^2.1.6",
     "get-stream": "^6.0.1"
   }
