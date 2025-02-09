@@ -3,7 +3,7 @@ import { NodeServiceClient } from "./client";
 export class NodeServiceClientMock extends NodeServiceClient {
   public request: any; // captured
   public error: Error; // to throw
-  public response: any; // to return;
+  public response: any; // to return
 
   public constructor() {
     super(undefined, undefined);

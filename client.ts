@@ -9,6 +9,7 @@ import {
 import { stringifyMessage } from "@selfage/message/stringifier";
 import { PrimitveTypeForBody } from "@selfage/service_descriptor";
 import { ClientRequestInterface } from "@selfage/service_descriptor/client_request_interface";
+import { NodeServiceRegistry } from "@selfage/service_descriptor/registry";
 
 export interface NodeClientOptions {
   retries?: number;
@@ -28,14 +29,16 @@ export interface NodeServiceClient {
 }
 
 export class NodeServiceClient extends EventEmitter {
-  public static create(baseUrlsMap: Map<string, string>): NodeServiceClient {
-    return new NodeServiceClient(baseUrlsMap, (callback, ms) =>
+  public static create(
+    serviceRegistry: NodeServiceRegistry,
+  ): NodeServiceClient {
+    return new NodeServiceClient(serviceRegistry, (callback, ms) =>
       setTimeout(callback, ms),
     );
   }
 
   public constructor(
-    private baseUrlsMap: Map<string, string>,
+    private serviceRegistry: NodeServiceRegistry,
     private setTimeout: (callback: Function, ms: number) => number,
   ) {
     super();
@@ -90,14 +93,16 @@ export class NodeServiceClient extends EventEmitter {
       throw newBadRequestError("Unsupported client request body.");
     }
 
-    let baseUrl = this.baseUrlsMap.get(request.descriptor.serviceName);
-    if (!baseUrl) {
+    let hostname = this.serviceRegistry.nameToHostnames.get(
+      request.descriptor.service.name,
+    );
+    if (!hostname) {
       throw new Error(
-        `No base url found for service ${request.descriptor.serviceName}.`,
+        `No hostname found for service ${request.descriptor.service.name}.`,
       );
     }
     let httpResponse = await this.requestWithTimeoutAndRetries(
-      `${baseUrl}${request.descriptor.path}`,
+      `${request.descriptor.service.protocol}://${hostname}:${request.descriptor.service.port}${request.descriptor.path}`,
       searchParams,
       writeBody,
       headers,

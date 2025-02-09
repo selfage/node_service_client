@@ -1,3 +1,4 @@
+import { NODE_SERVICE } from "./node_service";
 import { MessageDescriptor, PrimitiveType } from "@selfage/message/descriptor";
 import { RemoteCallDescriptor } from "@selfage/service_descriptor";
 import { ClientRequestInterface } from "@selfage/service_descriptor/client_request_interface";
@@ -36,7 +37,7 @@ export let GET_COMMENTS_RESPONSE: MessageDescriptor<GetCommentsResponse> = {
 
 export let GET_COMMENTS: RemoteCallDescriptor = {
   name: "GetComments",
-  serviceName: "CommentService",
+  service: NODE_SERVICE,
   path: "/GetComments",
   body: {
     messageType: GET_COMMENTS_REQUEST_BODY,
