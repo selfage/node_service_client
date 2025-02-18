@@ -9,7 +9,6 @@ import {
 import { stringifyMessage } from "@selfage/message/stringifier";
 import { PrimitveTypeForBody } from "@selfage/service_descriptor";
 import { ClientRequestInterface } from "@selfage/service_descriptor/client_request_interface";
-import { NodeServiceRegistry } from "@selfage/service_descriptor/registry";
 
 export interface NodeClientOptions {
   retries?: number;
@@ -30,15 +29,15 @@ export interface NodeServiceClient {
 
 export class NodeServiceClient extends EventEmitter {
   public static create(
-    serviceRegistry: NodeServiceRegistry,
+    origin: string
   ): NodeServiceClient {
-    return new NodeServiceClient(serviceRegistry, (callback, ms) =>
+    return new NodeServiceClient(origin, (callback, ms) =>
       setTimeout(callback, ms),
     );
   }
 
   public constructor(
-    private serviceRegistry: NodeServiceRegistry,
+    private origin: string,
     private setTimeout: (callback: Function, ms: number) => number,
   ) {
     super();
@@ -93,16 +92,8 @@ export class NodeServiceClient extends EventEmitter {
       throw newBadRequestError("Unsupported client request body.");
     }
 
-    let hostname = this.serviceRegistry.nameToHostnames.get(
-      request.descriptor.service.name,
-    );
-    if (!hostname) {
-      throw new Error(
-        `No hostname found for service ${request.descriptor.service.name}.`,
-      );
-    }
     let httpResponse = await this.requestWithTimeoutAndRetries(
-      `${request.descriptor.service.protocol}://${hostname}:${request.descriptor.service.port}${request.descriptor.path}`,
+      `${this.origin}${request.descriptor.service.path}${request.descriptor.path}`,
       searchParams,
       writeBody,
       headers,

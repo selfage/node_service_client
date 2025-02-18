@@ -6,7 +6,6 @@ import {
   GET_COMMENTS_RESPONSE,
   newGetCommentsRequest,
 } from "./test_data/get_comments";
-import { NODE_SERVICE } from "./test_data/node_service";
 import {
   UPLOAD_FILE_REQUEST_METADATA,
   UPLOAD_FILE_RESPONSE,
@@ -20,12 +19,11 @@ import {
 } from "@selfage/message/serializer";
 import { destringifyMessage } from "@selfage/message/stringifier";
 import { eqMessage } from "@selfage/message/test_matcher";
-import { ClientType } from "@selfage/service_descriptor/client_type";
 import { assertReject, assertThat, eq, eqError } from "@selfage/test_matcher";
 import { TEST_RUNNER, TestCase } from "@selfage/test_runner";
 import { createReadStream } from "fs";
 
-let HOSTNAME = "localhost";
+let ORIGIN = "http://localhost:8080";
 
 function setCorsHeader(res: express.Response): void {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -36,7 +34,7 @@ function setCorsHeader(res: express.Response): void {
 async function createServer(app: express.Express): Promise<http.Server> {
   let server = http.createServer(app);
   await new Promise<void>((resolve) => {
-    server.listen(NODE_SERVICE.port, () => resolve());
+    server.listen(8080, () => resolve());
   });
   app.options("/*", (req, res) => {
     setCorsHeader(res);
@@ -64,7 +62,7 @@ TEST_RUNNER.run({
         // Prepare
         let app = express();
         this.server = await createServer(app);
-        app.post("/GetComments", express.raw(), (req, res) => {
+        app.post("/node/GetComments", express.raw(), (req, res) => {
           assertThat(
             deserializeMessage(req.body, GET_COMMENTS_REQUEST_BODY),
             eqMessage({ videoId: "aaaaa" }, GET_COMMENTS_REQUEST_BODY),
@@ -74,10 +72,7 @@ TEST_RUNNER.run({
             serializeMessage({ texts: ["1", "2", "3"] }, GET_COMMENTS_RESPONSE),
           );
         });
-        let client = NodeServiceClient.create({
-          clientType: ClientType.NODE,
-          nameToHostnames: new Map([["NodeService", HOSTNAME]]),
-        });
+        let client = NodeServiceClient.create(ORIGIN);
 
         // Execute
         let actualResponse = await client.send(
@@ -102,14 +97,11 @@ TEST_RUNNER.run({
         // Prepare
         let app = express();
         this.server = await createServer(app);
-        app.post("/GetComments", express.raw(), (req, res) => {
+        app.post("/node/GetComments", express.raw(), (req, res) => {
           setCorsHeader(res);
           res.sendStatus(StatusCode.InternalServerError);
         });
-        let client = NodeServiceClient.create({
-          clientType: ClientType.NODE,
-          nameToHostnames: new Map([["NodeService", HOSTNAME]]),
-        });
+        let client = NodeServiceClient.create(ORIGIN);
 
         let httpErrors = 0;
         let errors = 0;
@@ -155,14 +147,11 @@ TEST_RUNNER.run({
         // Prepare
         let app = express();
         this.server = await createServer(app);
-        app.post("/GetComments", express.raw(), (req, res) => {
+        app.post("/node/GetComments", express.raw(), (req, res) => {
           setCorsHeader(res);
           res.end("random string");
         });
-        let client = NodeServiceClient.create({
-          clientType: ClientType.NODE,
-          nameToHostnames: new Map([["NodeService", HOSTNAME]]),
-        });
+        let client = NodeServiceClient.create(ORIGIN);
 
         let errors = 0;
         client.on("error", (error) => {
@@ -198,13 +187,10 @@ TEST_RUNNER.run({
         // Prepare
         let app = express();
         this.server = await createServer(app);
-        app.post("/GetComments", express.raw(), (req, res) => {
+        app.post("/node/GetComments", express.raw(), (req, res) => {
           // Hang forever.
         });
-        let client = NodeServiceClient.create({
-          clientType: ClientType.NODE,
-          nameToHostnames: new Map([["NodeService", HOSTNAME]]),
-        });
+        let client = NodeServiceClient.create(ORIGIN);
 
         let errors = 0;
         client.on("error", (error) => {
@@ -240,10 +226,7 @@ TEST_RUNNER.run({
       public name = "GetCommentsExhaustedRetries";
       public async execute() {
         // Prepare
-        let client = NodeServiceClient.create({
-          clientType: ClientType.NODE,
-          nameToHostnames: new Map([["NodeService", HOSTNAME]]),
-        });
+        let client = NodeServiceClient.create(ORIGIN);
         let errors = 0;
         client.on("error", (error) => {
           errors++;
@@ -277,28 +260,29 @@ TEST_RUNNER.run({
         // Prepare
         let app = express();
         this.server = await createServer(app);
-        app.post("/UploadFile", express.text({ type: "*/*" }), (req, res) => {
-          setCorsHeader(res);
-          assertThat(
-            destringifyMessage(
-              req.query["sd"] as string,
-              UPLOAD_FILE_REQUEST_METADATA,
-            ),
-            eqMessage({ fileName: "file1" }, UPLOAD_FILE_REQUEST_METADATA),
-            "request side",
-          );
-          assertThat(req.body, eq("hahahah, random stuff"), "request body");
-          res.end(
-            serializeMessage(
-              { byteSize: 10, success: true },
-              UPLOAD_FILE_RESPONSE,
-            ),
-          );
-        });
-        let client = NodeServiceClient.create({
-          clientType: ClientType.NODE,
-          nameToHostnames: new Map([["NodeService", HOSTNAME]]),
-        });
+        app.post(
+          "/node/UploadFile",
+          express.text({ type: "*/*" }),
+          (req, res) => {
+            setCorsHeader(res);
+            assertThat(
+              destringifyMessage(
+                req.query["sd"] as string,
+                UPLOAD_FILE_REQUEST_METADATA,
+              ),
+              eqMessage({ fileName: "file1" }, UPLOAD_FILE_REQUEST_METADATA),
+              "request side",
+            );
+            assertThat(req.body, eq("hahahah, random stuff"), "request body");
+            res.end(
+              serializeMessage(
+                { byteSize: 10, success: true },
+                UPLOAD_FILE_RESPONSE,
+              ),
+            );
+          },
+        );
+        let client = NodeServiceClient.create(ORIGIN);
 
         // Execute
         let actualResponse = await client.send(
