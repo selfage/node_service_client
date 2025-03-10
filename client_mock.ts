@@ -1,4 +1,5 @@
-import { NodeServiceClient } from "./client";
+import { NodeClientOptions, NodeServiceClient } from "./client";
+import { ClientRequestInterface } from "@selfage/service_descriptor/client_request_interface";
 
 export class NodeServiceClientMock extends NodeServiceClient {
   public request: any; // captured
@@ -8,7 +9,10 @@ export class NodeServiceClientMock extends NodeServiceClient {
   public constructor() {
     super(undefined, undefined);
   }
-  public async send(request: any): Promise<any> {
+  public async send(
+    request: ClientRequestInterface<any>,
+    options?: NodeClientOptions,
+  ): Promise<any> {
     this.request = request;
     if (this.error) {
       throw this.error;
